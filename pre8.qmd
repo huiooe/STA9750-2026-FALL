@@ -1,0 +1,9 @@
+---
+title: "pre8"
+---
+nc <- system.file("shape/nc.shp", package = "sf") |>
+    sf::st_read(quiet=TRUE)
+nc
+
+library(tidyverse)
+glimpse(nc)
