@@ -616,6 +616,14 @@ FINAL_EMISSIONS <- FINAL_EMISSIONS |>
       ) / 1000 * CO2_MWh
   )
 
+FINAL_EMISSIONS |>
+  summarize(
+    total_rows = n(),
+    total_emissions = sum(total_CO2_lbs, na.rm = TRUE),
+    zero_emissions = sum(total_CO2_lbs == 0, na.rm = TRUE),
+    missing_CO2 = sum(is.na(CO2_MWh))
+  )
+
 # Display final table
 FINAL_EMISSIONS
 ```
@@ -905,60 +913,88 @@ car_emissions_per_mile <- 18.73 / 30.4
 **Award 1: Greenest Transit Agency**
 ```{r}
 
-efficiency_comparison <- tibble(
-  Category = c(
-    "Greenest transit agency",
-    "Median transit agency",
-    "Single-occupant gasoline car"
+# Identify the most efficient agency
+greenest <- agency_efficiency |>
+  slice_min(
+    emissions_per_passenger_mile,
+    n = 1,
+    with_ties = FALSE
+  )
+
+# Calculate national median
+median_efficiency <- median(
+  agency_efficiency$emissions_per_passenger_mile,
+  na.rm = TRUE
+)
+
+# Prepare comparison data
+greenest_comparison <- tibble(
+  Agency = c(
+    as.character(greenest$AGENCY[1]),
+    "National Median"
   ),
   Emissions = c(
     greenest$emissions_per_passenger_mile[1],
-    median_efficiency,
-    car_emissions_per_mile
+    median_efficiency
   )
-)
+) |>
+  mutate(
+    Category = if_else(
+      Agency == "National Median",
+      "National Median",
+      "Greenest Agency"
+    )
+  )
 
+# Create visualization
 ggplot(
-  efficiency_comparison,
+  greenest_comparison,
   aes(
-    x = reorder(Category, Emissions),
-    y = Emissions,
+    x = Emissions,
+    y = reorder(Agency, Emissions),
     fill = Category
   )
 ) +
-  geom_col(width = 0.6, show.legend = FALSE) +
+  geom_col(width = 0.5) +
   geom_text(
-    aes(label = round(Emissions, 3)),
+    aes(label = paste0(round(Emissions, 3), " lbs")),
     hjust = -0.15,
     size = 4
   ) +
-  coord_flip() +
   scale_fill_manual(values = c(
-    "Greenest transit agency" = "#16865B",
-    "Median transit agency" = "#7D8790",
-    "Single-occupant gasoline car" = "#C77B38"
+    "Greenest Agency" = "#16865B",
+    "National Median" = "#A0A7AD"
   )) +
-  scale_y_continuous(
-    expand = expansion(mult = c(0, 0.25))
+  scale_x_continuous(
+    expand = expansion(mult = c(0, 0.3))
   ) +
   labs(
-    title = "The Greenest Transit Agency",
-    subtitle = "CO2 emissions per passenger mile",
-    x = NULL,
-    y = "Pounds of CO2 per passenger mile",
+    title = "America's Most Efficient Transit Agency",
+    subtitle = "Carbon emissions per passenger mile",
+    x = "Pounds of CO2 per passenger mile",
+    y = NULL,
+    fill = NULL,
     caption = paste(
-      "Sources: 2025 FTA National Transit Database;",
-      "EIA gasoline emissions coefficient;",
-      "CAFE comparison assumption of 30.4 MPG."
+      "Lower emissions indicate better environmental efficiency.",
+      "Source: 2025 FTA National Transit Database and EIA."
     )
   ) +
-  theme_minimal(base_size = 12) +
+  theme_minimal(base_size = 13) +
   theme(
-    plot.title = element_text(face = "bold"),
-    axis.text.y = element_text(face = "bold"),
+    plot.title = element_text(face = "bold", size = 16),
+    legend.position = "top",
     panel.grid.major.y = element_blank(),
-    plot.caption = element_text(size = 8)
+    panel.grid.minor = element_blank()
   )
+
+ggsave(
+  "most_efficient_agency.png",
+  width = 9,
+  height = 5,
+  dpi = 300,
+  bg = "white"
+)
+
 ```
 
 **Award 2: Most Emissions Avoided**
@@ -1019,8 +1055,15 @@ ggplot(
     panel.grid.major.y = element_blank(),
     legend.position = "top"
   )
+ggsave(
+  "emissions_avoided.png",
+  width = 9,
+  height = 5,
+  dpi = 300,
+  bg = "white"
+)
 ```
-
+</details>
 
 **PRESS RELEASE**
 
@@ -1029,11 +1072,45 @@ ggplot(
 ## **FOR IMMEDIATE RELEASE**\n
 ### November 5, 2026
 
-The Greenest Transit Agency award recognizes the agency with the lowest carbon dioxide emissions per passenger mile. To calculate this metric, 
+Each year, GTA awards prizes to the small, medium, and large transit agencies that score the highest on the GTA Value Index (GTA VI). Our analysis will bring in data from two federal sources, the **National Transit Database** and the **Energy Information Administration**.
+
+The Greenest Transit Agency award recognizes the agency with the lowest carbon dioxide emissions per passenger mile. To calculate this metric, the total emissions were divided by total passenger miles travelled. Emissions from all reported transit modes were conbined at the agency level. This allows agencies of different sizes become more comparable.
+
+Emissions per UPT:
+
+The most efficient small transit agency is **`r upt_winners$AGENCY[upt_winners$agency_size == "Small"]`**, with **`r round(upt_winners$emissions_per_UPT[upt_winners$agency_size == "Small"], 4)`** pounds of CO2 per UPT.
+
+The most efficient medium transit agency is **`r upt_winners$AGENCY[upt_winners$agency_size == "Medium"]`**, with **`r round(upt_winners$emissions_per_UPT[upt_winners$agency_size == "Medium"], 4)`** pounds of CO2 per UPT.
+
+The most efficient large transit agency is **`r upt_winners$AGENCY[upt_winners$agency_size == "Large"]`**, with **`r round(upt_winners$emissions_per_UPT[upt_winners$agency_size == "Large"], 4)`** pounds of CO2 per UPT.
+
+Emissions per passenger mile:
+
+The most efficient small transit agency is **`r mile_winners$AGENCY[mile_winners$agency_size == "Small"]`**, with **`r round(mile_winners$emissions_per_passenger_mile[mile_winners$agency_size == "Small"], 4)`** pounds of CO2 per passenger mile.
+
+The most efficient medium transit agency is **`r mile_winners$AGENCY[mile_winners$agency_size == "Medium"]`**, with **`r round(mile_winners$emissions_per_passenger_mile[mile_winners$agency_size == "Medium"], 4)`** pounds of CO2 per passenger mile.
+
+The most efficient large transit agency is **`r mile_winners$AGENCY[mile_winners$agency_size == "Large"]`**, with **`r round(mile_winners$emissions_per_passenger_mile[mile_winners$agency_size == "Large"], 4)`** pounds of CO2 per passenger mile.
 
 
-</details>
+The Greenest Transit Agency award goes to **`r greenest$AGENCY[1]`**, with emissions of `r round(greenest$emissions_per_passenger_mile[1], 4)` pounds of CO₂ per passenger mile.
 
+![Greenest Transit Agency comparison](most_efficient_agency.png)
+
+The Most Emissions Avoided award recognizes the transit agency that prevented the greatest amount of CO2 emissions by providing public transportation instead of requiring everybody to drive individually. To calculate this metric, total passenger miles were divided by the vehicle fuel economy. Actual transit emissions is subtracted from estimated individual driving emissions.
+
+
+The Most Emissions Avoided award goes to **`r most_avoided$AGENCY[1]`**, which avoided an estimated `r format(round(most_avoided$emissions_avoided[1]), big.mark = ",")` pounds of CO₂ compared with individual driving.
+
+![Most Emissions Avoided](emissions_avoided.png)
+
+The GTA IV Green Transit Awards shows how the public transportation agencies are performing on the enviornmental basis at different levels. The data presented is valuable to measure their performances such as the amount of emissions produced, avoided, and how efficient the vehicles in the specific agencies are. Public transportation is an important alternative method for individuals to travel around the city, it will be essential for the public to consider what is best for the current environment.
+
+With the awards being recognized to the above two transit agencies, the public could have sufficient knowledge to compare and consider the transit mode and transit agencies to pick. The public could make a SMART decision when it comes to travelling around. However, the emissions only estimates the CO2 produced by vehicles selected. There could be other factors that have not been made into the consideration when the "Greenest" award is recognized.
+
+Congratulations to all the award winners!
+
+### Media Contact: HUI GAO @ hui.gao63@baruchmail.cuny.edu
 
 ::: {.callout-note title="AI Usage Statement" collapse="true"}
 ChatGPT was used to help write the code in this project, but all non-code text was generated without the use of any Generative AI tools. Additionally, ChatGPT was used to provide additional background information on the topic and to brainstorm ideas for the final open-ended prompt.
